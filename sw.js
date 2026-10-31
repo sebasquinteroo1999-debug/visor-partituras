@@ -1,6 +1,6 @@
 /* Service worker: guarda la app para que abra sin internet.
    Al cambiar cualquier archivo, subir VERSION. */
-const VERSION = "v2.2";
+const VERSION = "v2.3";
 const CACHE = "visor-" + VERSION;
 const SHELL = [
   "./",

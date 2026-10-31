@@ -140,7 +140,7 @@ if ("serviceWorker" in navigator) {
 import * as pdfjsLib from "./pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
 
-const APP_VERSION = "v2.2";
+const APP_VERSION = "v2.3";
 const $ = s => document.querySelector(s);
 
 /* ================= Almacenamiento local (IndexedDB) ================= */
@@ -532,7 +532,7 @@ async function openSong(s, start) {
       $("#toast").hidden = true;
       V.doc = doc; V.song = s; V.n = doc.numPages; V.arm = null; hideEdge();
       try { V.crops = JSON.parse(ls.get("crop:" + s.id) || "{}") || {}; } catch { V.crops = {}; }
-      let p = start === "last" ? V.n - 1 : start != null ? start : Number(ls.get("pos:" + s.id)) || 0;
+      let p = start === "last" ? V.n - 1 : 0;   // siempre abre en la hoja 1 (o la última al ir hacia atrás)
       p = Math.max(0, Math.min(p, V.n - 1));
       $("#vtitle").textContent = label(s);
       viewer.hidden = false;
@@ -653,7 +653,6 @@ function go(k, anim = true) {
   $("#vpage").textContent = lbl;
   $("#vdotsTxt").textContent = lbl;
   flashDots();
-  ls.set("pos:" + V.song.id, v[0]);
   manageWindow();
 }
 let dotsT;
