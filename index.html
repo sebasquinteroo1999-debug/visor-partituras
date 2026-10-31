@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Partituras">
+<meta name="theme-color" content="#111111">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Partituras</title>
+<style>
+:root{
+  --bg:#f6f5f2; --card:#fff; --ink:#1b1b1b; --muted:#6b6b6b; --line:#e4e2dd;
+  --accent:#b4532a; --danger:#c62828; --pill:#ecebe7;
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+  --sl:env(safe-area-inset-left,0px); --sr:env(safe-area-inset-right,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#121212; --card:#1c1c1c; --ink:#eee; --muted:#9a9a9a; --line:#2c2c2c; --accent:#e07a4a; --danger:#ef5350; --pill:#262626;}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font:16px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+[hidden]{display:none!important}
+
+/* ---------- Biblioteca ---------- */
+#lib{min-height:100%;padding:calc(var(--st) + 12px) calc(var(--sr) + 16px) calc(var(--sb) + 96px) calc(var(--sl) + 16px);max-width:760px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px}
+.top h1{font-size:28px;margin:0;flex:1;letter-spacing:-.01em}
+.btn-text{color:var(--accent);font-weight:600;padding:8px 4px}
+.status{font-size:12px;color:var(--muted);margin:2px 0 10px}
+#updBtn{width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--accent);color:var(--accent);font-weight:600;font-size:16px;margin-bottom:8px;background:var(--card)}
+#updBtn:active{background:var(--pill)}
+.search{position:sticky;top:0;z-index:2;background:var(--bg);padding:6px 0 10px}
+.search input{width:100%;font-size:17px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);outline:none;-webkit-appearance:none}
+.search input:focus{border-color:var(--accent)}
+#list{list-style:none;margin:0;padding:0;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+#list:empty{display:none}
+#list li{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer;min-height:54px}
+#list li:first-child{border-top:0}
+#list li:active{background:var(--pill)}
+.num{min-width:34px;height:30px;padding:0 6px;border-radius:8px;background:var(--pill);display:flex;align-items:center;justify-content:center;font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
+.ttl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:17px}
+.del{color:#fff;background:var(--danger);border-radius:8px;padding:6px 10px;font-size:14px;font-weight:600}
+.empty{color:var(--muted);text-align:center;padding:36px 12px;line-height:1.5}
+.count{font-size:13px;color:var(--muted);margin:10px 4px 0}
+#addBtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 18px);background:var(--accent);color:#fff;font-weight:700;font-size:17px;padding:14px 26px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:5}
+
+/* ---------- Visor ---------- */
+#viewer{position:fixed;inset:0;background:#111;z-index:20;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#track{position:absolute;inset:0;display:flex;will-change:transform}
+.slot{flex:0 0 100%;height:100%;display:flex;align-items:center;justify-content:center;padding:var(--st) var(--sr) var(--sb) var(--sl)}
+.slot canvas{display:block;background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.05)}
+.slot .pair{display:flex;align-items:center;justify-content:center;gap:2px}
+#viewer.night{background:#000}
+#viewer.night .slot canvas{filter:invert(.9) hue-rotate(180deg)}
+.vbtn{color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:5px 9px;font-size:14px;font-weight:600;white-space:nowrap}
+.vbtn.on{background:#ffb38c;color:#111;border-color:#ffb38c}
+.slot .ld{color:#777;font-size:14px}
+#vbar{position:absolute;left:0;right:0;top:0;padding:calc(var(--st) + 8px) calc(var(--sr) + 12px) 10px calc(var(--sl) + 12px);display:flex;align-items:center;gap:10px;background:linear-gradient(rgba(0,0,0,.85),rgba(0,0,0,.6));color:#fff;transition:opacity .2s;z-index:3}
+#vbar.off{opacity:0;pointer-events:none}
+#vback{position:absolute;z-index:5;top:calc(var(--st) + 8px);left:calc(var(--sl) + 8px);font-size:13px;font-weight:600;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);padding:4px 10px;border-radius:999px;opacity:.75}
+#vback:active{opacity:1}
+#vbar .vspace{width:68px;flex:0 0 68px}
+#vtitle{flex:1;text-align:center;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#vpage{font-variant-numeric:tabular-nums;font-size:14px;min-width:54px;text-align:right;opacity:.85}
+#vdots{position:absolute;left:0;right:0;bottom:calc(var(--sb) + 10px);text-align:center;color:#fff;font-size:13px;transition:opacity .2s;z-index:3;pointer-events:none}
+#vdots span{background:rgba(0,0,0,.6);padding:4px 10px;border-radius:999px}
+#vdots.off{opacity:0}
+#vedge{position:absolute;top:50%;transform:translateY(-50%);z-index:4;color:#fff;background:rgba(0,0,0,.8);border:1px solid rgba(255,255,255,.2);padding:10px 14px;border-radius:12px;font-size:15px;font-weight:600;max-width:46vw;pointer-events:none;opacity:0;transition:opacity .15s}
+#vedge.r{right:calc(var(--sr) + 12px);text-align:right}
+#vedge.l{left:calc(var(--sl) + 12px)}
+#vedge small{display:block;font-weight:400;opacity:.75;font-size:12px}
+#vedge .hint{margin-top:4px;color:#ffb38c}
+
+/* ---------- Avisos ---------- */
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 84px);background:#222;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:50;max-width:90vw;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+#dlg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
+#dlg .box{background:var(--card);border-radius:16px;padding:20px;max-width:360px;width:100%;max-height:80vh;overflow:auto}
+#dlg h3{margin:0 0 10px;font-size:18px}
+#dlg p{margin:0 0 14px}
+#dlg ul{margin:0 0 14px;padding-left:18px;font-size:14px}
+#dlg .row{display:flex;gap:10px;justify-content:flex-end}
+#dlg .row button{padding:9px 14px;border-radius:10px;font-weight:600}
+#dlgOk{background:var(--danger);color:#fff}
+#dlgOk.plain{background:var(--accent)}
+</style>
+</head>
+<body>
+
+<main id="lib">
+  <div class="top">
+    <h1>Orquesta</h1>
+    <button class="btn-text" id="editBtn">Editar</button>
+  </div>
+  <div class="status" id="status">Cargando…</div>
+  <button id="updBtn">↻ Actualizar desde Orquesta</button>
+  <div class="search"><input id="q" type="search" placeholder="Buscar por nombre o número" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+  <ul id="list"></ul>
+  <div class="empty" id="empty" hidden>
+    Aún no hay canciones.<br>Toca <b>↻ Actualizar desde Orquesta</b>, abre la carpeta <b>Orquesta</b> en iCloud Drive y elige todos los PDF.
+  </div>
+  <div class="count" id="count"></div>
+</main>
+
+<button id="addBtn">+ Agregar PDF</button>
+<input id="file" type="file" accept="application/pdf,.pdf" multiple hidden>
+<input id="folder" type="file" accept="application/pdf,.pdf" multiple hidden>
+
+<section id="viewer" hidden>
+  <div id="track"></div>
+  <button id="vback">‹ Lista</button>
+  <div id="vbar">
+    <div class="vspace"></div>
+    <div id="vtitle"></div>
+    <div id="vpage"></div>
+    <button class="vbtn" id="vcrop" aria-label="Recortar márgenes">✂</button>
+    <button class="vbtn" id="vtwo" aria-label="Una o dos páginas">2 págs</button>
+    <button class="vbtn" id="vnight" aria-label="Modo noche">☾</button>
+  </div>
+  <div id="vedge"></div>
+  <div id="vdots"><span id="vdotsTxt"></span></div>
+</section>
+
+<div id="toast" hidden></div>
+<div id="dlg" hidden><div class="box"><h3 id="dlgTitle"></h3><p id="dlgMsg"></p><ul id="dlgList"></ul><div class="row"><button id="dlgNo">Cancelar</button><button id="dlgOk">Borrar</button></div></div></div>
+
+<script>
+/* Service worker: guarda la app para abrir sin internet */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(e => console.warn("sw", e)));
+}
+</script>
+<script type="module">
+import * as pdfjsLib from "./pdf.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
+
+const APP_VERSION = "v2.0";
+const $ = s => document.querySelector(s);
+
+/* ================= Almacenamiento local (IndexedDB) ================= */
+const Local = {
+  db: null,
+  async open() {
+    if (this.db) return this.db;
+    this.db = await new Promise((res, rej) => {
+      const r = indexedDB.open("visor-partituras", 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore("meta"); r.result.createObjectStore("pdf"); };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    return this.db;
+  },
+  async tx(store, mode, fn) {
+    try {
+      const db = await this.open();
+      return await new Promise((res, rej) => {
+        const t = db.transaction(store, mode), s = t.objectStore(store);
+        const r = fn(s);
+        t.oncomplete = () => res(r && r.result);
+        t.onerror = () => rej(t.error);
+      });
+    } catch (e) { console.warn("IDB", e); return undefined; }
+  },
+  get(store, k) { return this.tx(store, "readonly", s => s.get(k)); },
+  put(store, k, v) { return this.tx(store, "readwrite", s => s.put(v, k)); },
+  del(store, k) { return this.tx(store, "readwrite", s => s.delete(k)); },
+  all(store) { return this.tx(store, "readonly", s => s.getAll()); },
+};
+
+/* ================= Estado ================= */
+let songs = new Map();     // id -> {id,file,num,title,size,hash,added}
+let editing = false, busy = false;
+
+function parseName(name) {
+  const base = name.replace(/\.pdf$/i, "").trim();
+  const m = base.match(/^(\d+)\s*[.\-_)]?\s*(.*)$/);
+  if (m) return { num: Number(m[1]), title: (m[2] || base).trim() };
+  return { num: null, title: base };
+}
+const norm = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const label = s => (s.num != null ? s.num + ". " : "") + s.title;
+const isPdf = f => /\.pdf$/i.test(f.name) || f.type === "application/pdf";
+const newId = () => "s-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+
+async function sha(buf) {
+  try {
+    const h = await crypto.subtle.digest("SHA-256", buf);
+    return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
+  } catch { return "size:" + buf.byteLength; }
+}
+
+function sorted() {
+  return [...songs.values()].sort((a, b) =>
+    (a.num ?? 1e9) - (b.num ?? 1e9) || a.title.localeCompare(b.title, "es"));
+}
+
+/* ================= Lista ================= */
+function renderList() {
+  const q = norm($("#q").value.trim());
+  const all = sorted();
+  const items = q ? all.filter(s => norm(s.title).includes(q) || String(s.num ?? "").startsWith(q)) : all;
+  const ul = $("#list");
+  ul.innerHTML = "";
+  for (const s of items) {
+    const li = document.createElement("li");
+    const n = document.createElement("div"); n.className = "num"; n.textContent = s.num ?? "–";
+    const t = document.createElement("div"); t.className = "ttl"; t.textContent = s.title;
+    li.append(n, t);
+    if (editing) {
+      const d = document.createElement("button"); d.className = "del"; d.textContent = "Borrar";
+      d.onclick = ev => { ev.stopPropagation(); askDelete(s); };
+      li.append(d);
+    } else li.onclick = () => openSong(s);
+    ul.append(li);
+  }
+  $("#empty").hidden = all.length > 0;
+  const cn = n => `${n} ${n === 1 ? "canción" : "canciones"}`;
+  $("#count").textContent = all.length ? (q ? `${items.length} de ${cn(all.length)}` : cn(all.length)) : "";
+  updateStatus();
+}
+$("#q").addEventListener("input", renderList);
+$("#editBtn").onclick = () => { editing = !editing; $("#editBtn").textContent = editing ? "Listo" : "Editar"; renderList(); };
+
+function updateStatus() {
+  const off = navigator.onLine === false;
+  $("#status").textContent = "Guardado en este equipo" + (off ? " · sin conexión" : "") + " · " + APP_VERSION;
+}
+window.addEventListener("online", updateStatus);
+window.addEventListener("offline", updateStatus);
+
+let toastT;
+function toast(msg, ms = 2600) {
+  const el = $("#toast"); el.textContent = msg; el.hidden = false;
+  clearTimeout(toastT); if (ms) toastT = setTimeout(() => el.hidden = true, ms);
+}
+
+/* Ventana de aviso / confirmación */
+function dialog({ title = "", msg = "", list = [], ok = "Borrar", cancel = "Cancelar", danger = true }) {
+  return new Promise(res => {
+    $("#dlgTitle").textContent = title; $("#dlgTitle").hidden = !title;
+    $("#dlgMsg").textContent = msg;
+    const ul = $("#dlgList"); ul.innerHTML = "";
+    for (const x of list) { const li = document.createElement("li"); li.textContent = x; ul.append(li); }
+    ul.hidden = !list.length;
+    $("#dlgOk").textContent = ok; $("#dlgOk").classList.toggle("plain", !danger);
+    $("#dlgNo").textContent = cancel || ""; $("#dlgNo").hidden = !cancel;
+    $("#dlg").hidden = false;
+    $("#dlgOk").onclick = () => { $("#dlg").hidden = true; res(true); };
+    $("#dlgNo").onclick = () => { $("#dlg").hidden = true; res(false); };
+  });
+}
+
+/* ================= Agregar PDFs ================= */
+async function addFile(f, buf, hash) {
+  buf = buf || await f.arrayBuffer();
+  hash = hash || await sha(buf);
+  const { num, title } = parseName(f.name);
+  const entry = { id: newId(), file: f.name, num, title, size: buf.byteLength, hash, added: Date.now() };
+  await Local.put("pdf", entry.id, buf);
+  await Local.put("meta", entry.id, entry);
+  songs.set(entry.id, entry);
+}
+
+$("#addBtn").onclick = () => { if (!busy) $("#file").click(); };
+$("#file").addEventListener("change", async e => {
+  const files = [...e.target.files].filter(isPdf); e.target.value = "";
+  if (!files.length || busy) return;
+  busy = true;
+  const names = new Set([...songs.values()].map(s => s.file.toLowerCase()));
+  let ok = 0, dup = 0, fail = 0;
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (names.has(f.name.toLowerCase())) { dup++; continue; }
+      toast(`Agregando ${i + 1} de ${files.length}…`, 0);
+      try { await addFile(f); names.add(f.name.toLowerCase()); ok++; }
+      catch (err) { console.error(err); fail++; }
+    }
+  } finally { busy = false; }
+  const parts = [];
+  if (ok) parts.push(`${ok} agregada${ok > 1 ? "s" : ""}`);
+  if (dup) parts.push(`${dup} ya estaba${dup > 1 ? "n" : ""}`);
+  if (fail) parts.push(`${fail} con error`);
+  toast(parts.join(" · ") || "Nada nuevo");
+  renderList();
+});
+
+/* ================= Actualizar desde Orquesta ================= */
+$("#updBtn").onclick = () => { if (!busy) $("#folder").click(); };
+$("#folder").addEventListener("change", async e => {
+  const files = [...e.target.files].filter(isPdf); e.target.value = "";
+  if (!files.length || busy) return;
+  busy = true;
+  const byName = new Map([...songs.values()].map(s => [s.file.toLowerCase(), s]));
+  const seen = new Set();
+  let added = 0, replaced = 0, same = 0;
+  const bad = [];
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i], key = f.name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      toast(`Revisando ${i + 1} de ${files.length}…`, 0);
+      try {
+        const buf = await f.arrayBuffer();
+        const hash = await sha(buf);
+        const s = byName.get(key);
+        if (!s) { await addFile(f, buf, hash); added++; continue; }
+        let old = s.hash;
+        if (!old) {
+          const ob = await Local.get("pdf", s.id);
+          old = ob ? await sha(ob) : null;
+        }
+        if (old === hash) {
+          if (!s.hash) { s.hash = hash; await Local.put("meta", s.id, s); }
+          same++; continue;
+        }
+        // Cambió: reemplazar el PDF, misma canción
+        await Local.put("pdf", s.id, buf);
+        const { num, title } = parseName(f.name);
+        const e2 = { ...s, file: f.name, num, title, size: buf.byteLength, hash };
+        await Local.put("meta", s.id, e2);
+        songs.set(s.id, e2);
+        ls.del("crop:" + s.id);
+        replaced++;
+      } catch (err) { console.error(err); bad.push(f.name + " — no se pudo leer"); }
+    }
+  } finally { busy = false; $("#toast").hidden = true; }
+  renderList();
+
+  const missing = sorted().filter(s => !seen.has(s.file.toLowerCase()));
+  await dialog({
+    title: "Actualizar desde Orquesta",
+    msg: `${added} nueva${added === 1 ? "" : "s"} · ${replaced} actualizada${replaced === 1 ? "" : "s"} · ${same} igual${same === 1 ? "" : "es"}` + (bad.length ? ` · ${bad.length} con error` : ""),
+    list: bad, ok: "Listo", cancel: "", danger: false,
+  });
+  if (missing.length) {
+    const quitar = await dialog({
+      title: "Ya no están en la carpeta",
+      msg: `${missing.length} canción${missing.length === 1 ? "" : "es"} de la biblioteca no venía${missing.length === 1 ? "" : "n"} en lo que elegiste. ¿Quitarla${missing.length === 1 ? "" : "s"} de la biblioteca?`,
+      list: missing.map(label), ok: "Quitar", cancel: "Dejar",
+    });
+    if (quitar) {
+      for (const s of missing) await removeSong(s);
+      renderList(); toast(`${missing.length} quitada${missing.length === 1 ? "" : "s"}`);
+    }
+  }
+});
+
+/* ================= Borrar ================= */
+async function removeSong(s) {
+  await Local.del("pdf", s.id); await Local.del("meta", s.id);
+  ls.del("crop:" + s.id); ls.del("pos:" + s.id);
+  songs.delete(s.id);
+}
+async function askDelete(s) {
+  if (!await dialog({ msg: `¿Borrar “${label(s)}” de la biblioteca? El archivo en iCloud no se toca.` })) return;
+  try { await removeSong(s); renderList(); toast("Borrada"); }
+  catch (e) { console.error(e); toast("No se pudo borrar"); }
+}
+
+/* ================= Obtener bytes del PDF ================= */
+async function getBytes(s) {
+  const buf = await Local.get("pdf", s.id);
+  if (!buf) throw new Error("PDF no disponible en este equipo");
+  return buf;
+}
+
+/* ================= Visor ================= */
+const V = { doc: null, song: null, n: 0, i: 0, views: [], nv: 0, two: false, slots: [], gen: 0, barT: null, crops: {}, arm: null, opening: false };
+const viewer = $("#viewer"), track = $("#track");
+const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+             set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+             del(k) { try { localStorage.removeItem(k); } catch {} } };
+
+/* Modo noche */
+function applyNight() {
+  const on = ls.get("night") === "1";
+  viewer.classList.toggle("night", on);
+  $("#vnight").classList.toggle("on", on);
+}
+$("#vnight").onclick = e => { e.stopPropagation(); ls.set("night", ls.get("night") === "1" ? "0" : "1"); applyNight(); showBar(); };
+applyNight();
+
+/* Una o dos páginas: se recuerda por orientación (vertical / horizontal) */
+const isLand = () => viewer.clientWidth > viewer.clientHeight;
+const twoKey = () => isLand() ? "two:land" : "two:port";
+function wantTwo() {
+  const p = ls.get(twoKey());
+  if (p === "1") return false;
+  if (p === "2") return true;
+  return isLand() && viewer.clientHeight >= 600;   // automático: iPad horizontal
+}
+$("#vtwo").onclick = e => {
+  e.stopPropagation();
+  ls.set(twoKey(), V.two ? "1" : "2");
+  build(V.views[V.i]?.[0] || 0); showBar();
+};
+
+/* Recorte automático de márgenes */
+const cropOn = () => ls.get("crop") !== "0";
+function applyCropBtn() { $("#vcrop").classList.toggle("on", cropOn()); }
+$("#vcrop").onclick = e => {
+  e.stopPropagation();
+  ls.set("crop", cropOn() ? "0" : "1"); applyCropBtn();
+  toast(cropOn() ? "Recorte de márgenes: activado" : "Recorte de márgenes: apagado", 1500);
+  build(V.views[V.i]?.[0] || 0); showBar();
+};
+applyCropBtn();
+
+async function detectCrop(page) {
+  const v = page.getViewport({ scale: 1 });
+  const vp = page.getViewport({ scale: 500 / Math.max(v.width, v.height) });
+  const c = document.createElement("canvas");
+  c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  const w = c.width, h = c.height;
+  const px = ctx.getImageData(0, 0, w, h).data;
+  c.width = 0; c.height = 0;
+  return cropFromPixels(px, w, h);
+}
+function cropFromPixels(px, w, h) {
+  const rows = new Uint32Array(h), cols = new Uint32Array(w);
+  const mx = Math.round(w * 0.01), my = Math.round(h * 0.01);   // ignora bordes de escaneo
+  for (let y = my; y < h - my; y++) for (let x = mx; x < w - mx; x++) {
+    const i = (y * w + x) * 4;
+    if (px[i + 3] > 40 && px[i] + px[i + 1] + px[i + 2] < 660) { rows[y]++; cols[x]++; }
+  }
+  const MIN = 2;
+  let t = 0; while (t < h && rows[t] < MIN) t++;
+  if (t >= h) return null;
+  let b = h - 1; while (b > t && rows[b] < MIN) b--;
+  let l = 0; while (l < w && cols[l] < MIN) l++;
+  let r = w - 1; while (r > l && cols[r] < MIN) r--;
+  const pad = 0.015;
+  const x0 = Math.max(0, l / w - pad), y0 = Math.max(0, t / h - pad);
+  const x1 = Math.min(1, (r + 1) / w + pad), y1 = Math.min(1, (b + 1) / h + pad);
+  if ((x1 - x0) * (y1 - y0) > 0.93) return null;   // casi sin margen: no vale la pena
+  return [x0, y0, x1 - x0, y1 - y0].map(n => Math.round(n * 1e4) / 1e4);
+}
+async function getCrop(page, p) {
+  const crops = V.crops, id = V.song && V.song.id;
+  if (p in crops) return crops[p] || null;
+  let c = null;
+  try { c = await detectCrop(page); } catch (e) { console.warn("crop", e); }
+  crops[p] = c || 0;
+  if (id) ls.set("crop:" + id, JSON.stringify(crops));
+  return c;
+}
+
+/* Canción vecina en el orden de la lista */
+function neighbor(dir) {
+  if (!V.song) return null;
+  const all = sorted(), k = all.findIndex(x => x.id === V.song.id);
+  return k < 0 ? null : all[k + dir] || null;
+}
+let edgeT;
+function showEdge(dir, op, armed) {
+  const s = neighbor(dir); if (!s) return;
+  const el = $("#vedge"); el.className = dir > 0 ? "r" : "l"; el.innerHTML = "";
+  const sm = document.createElement("small"); sm.textContent = dir > 0 ? "Siguiente ›" : "‹ Anterior";
+  const tt = document.createElement("div"); tt.textContent = label(s);
+  el.append(sm, tt);
+  if (armed) { const h = document.createElement("small"); h.className = "hint"; h.textContent = "Toca otra vez para abrir"; el.append(h); }
+  el.style.opacity = op;
+}
+function hideEdge() { $("#vedge").style.opacity = 0; }
+
+/* Avanzar o retroceder: al pasar el final abre la canción vecina */
+function step(dir) {
+  const k = V.i + dir;
+  if (k >= 0 && k < V.nv) { V.arm = null; hideEdge(); go(k); return; }
+  if (!neighbor(dir)) { go(V.i); return; }
+  if (V.arm && V.arm.dir === dir && performance.now() - V.arm.t < 3000) { jump(dir); return; }
+  V.arm = { dir, t: performance.now() };
+  showEdge(dir, 1, true);
+  clearTimeout(edgeT); edgeT = setTimeout(() => { V.arm = null; hideEdge(); }, 3000);
+}
+function jump(dir) {
+  const s = neighbor(dir); if (!s) return;
+  V.arm = null; clearTimeout(edgeT); hideEdge();
+  openSong(s, dir > 0 ? 0 : "last");
+}
+
+function build(page) {
+  const t = wantTwo() && V.n > 1;
+  V.two = t; V.views = [];
+  for (let p = 0; p < V.n; p += t ? 2 : 1) V.views.push(t && p + 1 < V.n ? [p, p + 1] : [p]);
+  V.nv = V.views.length;
+  for (const sl of V.slots) freeSlot(sl);
+  track.innerHTML = "";
+  V.slots = V.views.map(() => {
+    const d = document.createElement("div"); d.className = "slot";
+    d.innerHTML = '<span class="ld">…</span>'; track.append(d); return d;
+  });
+  V.gen++;
+  $("#vtwo").textContent = t ? "2 págs" : "1 pág";
+  $("#vtwo").classList.toggle("on", t);
+  $("#vtwo").hidden = V.n < 2;
+  go(Math.max(0, V.views.findIndex(v => v.includes(page))), false);
+}
+
+async function openSong(s, start) {
+  if (V.opening) return;
+  V.opening = true;
+  toast(label(s) + "…", 0);
+  try {
+    let buf;
+    try { buf = await getBytes(s); }
+    catch (e) { toast(e.message || "No se pudo abrir"); return; }
+    try {
+      const task = pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) });
+      const doc = await task.promise;
+      const old = V.task;
+      V.task = task;
+      $("#toast").hidden = true;
+      V.doc = doc; V.song = s; V.n = doc.numPages; V.arm = null; hideEdge();
+      try { V.crops = JSON.parse(ls.get("crop:" + s.id) || "{}") || {}; } catch { V.crops = {}; }
+      let p = start === "last" ? V.n - 1 : start != null ? start : Number(ls.get("pos:" + s.id)) || 0;
+      p = Math.max(0, Math.min(p, V.n - 1));
+      $("#vtitle").textContent = label(s);
+      viewer.hidden = false;
+      document.body.style.overflow = "hidden";
+      build(p);
+      if (old) { try { old.destroy(); } catch {} }
+      showBar();
+      wake(true);
+    } catch (e) { console.error(e); toast("El PDF no se pudo leer"); }
+  } finally { V.opening = false; }
+}
+
+function closeViewer() {
+  viewer.hidden = true;
+  document.body.style.overflow = "";
+  if (V.task) { try { V.task.destroy(); } catch {} V.task = null; }
+  V.doc = null; V.arm = null; hideEdge();
+  for (const sl of V.slots) freeSlot(sl);
+  track.innerHTML = ""; V.slots = [];
+  wake(false);
+}
+$("#vback").onclick = e => { e.stopPropagation(); closeViewer(); };
+
+function pageArea() {
+  const cs = getComputedStyle(V.slots[0] || viewer);
+  const W = viewer.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const H = viewer.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  return { W: Math.max(50, W), H: Math.max(50, H) };
+}
+
+async function drawPage(doc, p, W, H) {
+  const page = await doc.getPage(p + 1);
+  const v1 = page.getViewport({ scale: 1 });
+  const cr = cropOn() ? await getCrop(page, p) : null;
+  const cw = cr ? v1.width * cr[2] : v1.width, ch = cr ? v1.height * cr[3] : v1.height;
+  const fit = Math.min(W / cw, H / ch);
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const sc = fit * dpr;
+  const vp = page.getViewport({ scale: sc, offsetX: cr ? -cr[0] * v1.width * sc : 0, offsetY: cr ? -cr[1] * v1.height * sc : 0 });
+  const c = document.createElement("canvas");
+  c.width = Math.floor(cw * sc); c.height = Math.floor(ch * sc);
+  c.style.width = Math.floor(cw * sc / dpr) + "px";
+  c.style.height = Math.floor(ch * sc / dpr) + "px";
+  await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+  return c;
+}
+
+async function renderView(k) {
+  const slot = V.slots[k], pages = V.views[k];
+  if (!slot || slot.dataset.gen == V.gen) return;
+  slot.dataset.gen = V.gen;
+  const gen = V.gen, doc = V.doc;
+  try {
+    let { W, H } = pageArea();
+    if (V.two) W = (W - 2) / 2;
+    const cs = [];
+    for (const p of pages) cs.push(await drawPage(doc, p, W, H));
+    if (gen !== V.gen || doc !== V.doc) { cs.forEach(c => { c.width = 0; c.height = 0; }); return; }
+    freeSlot(slot);
+    const box = document.createElement("div"); box.className = "pair"; box.append(...cs);
+    slot.append(box);
+  } catch (e) { if (gen === V.gen) { slot.dataset.gen = ""; console.warn(e); } }
+}
+function freeSlot(slot) {
+  for (const c of slot.querySelectorAll("canvas")) { c.width = 0; c.height = 0; }
+  slot.innerHTML = "";
+}
+function manageWindow() {
+  V.slots.forEach((slot, k) => {
+    if (Math.abs(k - V.i) > 2 && slot.dataset.gen) { freeSlot(slot); slot.dataset.gen = ""; slot.innerHTML = '<span class="ld">…</span>'; }
+  });
+  renderView(V.i).then(() => { renderView(V.i + 1); renderView(V.i - 1); });
+}
+
+function setX(px, anim) {
+  track.style.transition = anim ? "transform .25s ease-out" : "none";
+  track.style.transform = `translate3d(${px}px,0,0)`;
+}
+function go(k, anim = true) {
+  V.i = Math.max(0, Math.min(V.nv - 1, k));
+  setX(-V.i * viewer.clientWidth, anim);
+  const v = V.views[V.i];
+  const lbl = (v.length > 1 ? `${v[0] + 1}–${v[1] + 1}` : `${v[0] + 1}`) + ` / ${V.n}`;
+  $("#vpage").textContent = lbl;
+  $("#vdotsTxt").textContent = lbl;
+  flashDots();
+  ls.set("pos:" + V.song.id, v[0]);
+  manageWindow();
+}
+let dotsT;
+function flashDots() {
+  const d = $("#vdots"); d.classList.remove("off");
+  clearTimeout(dotsT); dotsT = setTimeout(() => d.classList.add("off"), 1200);
+}
+function showBar() {
+  $("#vbar").classList.remove("off");
+  clearTimeout(V.barT); V.barT = setTimeout(() => $("#vbar").classList.add("off"), 3000);
+}
+function toggleBar() {
+  const b = $("#vbar");
+  if (b.classList.contains("off")) showBar(); else { b.classList.add("off"); clearTimeout(V.barT); }
+}
+
+/* Gestos: deslizar y tocar bordes */
+let g = null;
+viewer.addEventListener("pointerdown", e => {
+  if (e.target.closest("#vback")) return;
+  if (e.target.closest("#vbar") && !$("#vbar").classList.contains("off")) return;
+  g = { x: e.clientX, y: e.clientY, t: performance.now(), dx: 0, moved: false, id: e.pointerId };
+  viewer.setPointerCapture?.(e.pointerId);
+});
+viewer.addEventListener("pointermove", e => {
+  if (!g || e.pointerId !== g.id) return;
+  const dx = e.clientX - g.x, dy = e.clientY - g.y;
+  if (!g.moved && Math.hypot(dx, dy) > 8) g.moved = true;
+  if (!g.moved) return;
+  g.raw = dx;
+  let d = dx;
+  const atEnd = V.i === V.nv - 1 && d < 0, atStart = V.i === 0 && d > 0;
+  if (atEnd || atStart) {
+    d *= 0.3;
+    showEdge(atEnd ? 1 : -1, Math.min(1, Math.abs(dx) / (viewer.clientWidth * 0.25)), false);
+  } else if (!V.arm) hideEdge();
+  g.dx = d;
+  setX(-V.i * viewer.clientWidth + d, false);
+});
+function endGesture(e) {
+  if (!g || e.pointerId !== g.id) return;
+  const W = viewer.clientWidth, dt = performance.now() - g.t;
+  if (!g.moved) {
+    const x = e.clientX;
+    if (x < W * 0.3) step(-1);
+    else if (x > W * 0.7) step(1);
+    else toggleBar();
+  } else {
+    const raw = g.raw || 0;
+    const fast = Math.abs(g.dx) / dt > 0.4;
+    if (V.i === V.nv - 1 && raw < -W * 0.25 && neighbor(1)) { go(V.i); jump(1); }
+    else if (V.i === 0 && raw > W * 0.25 && neighbor(-1)) { go(V.i); jump(-1); }
+    else {
+      if ((g.dx < -W * 0.18 || (fast && g.dx < -20)) && V.i < V.nv - 1) go(V.i + 1);
+      else if ((g.dx > W * 0.18 || (fast && g.dx > 20)) && V.i > 0) go(V.i - 1);
+      else go(V.i);
+      if (!V.arm) hideEdge();
+    }
+  }
+  g = null;
+}
+viewer.addEventListener("pointerup", endGesture);
+viewer.addEventListener("pointercancel", e => { if (g) { g = null; go(V.i); if (!V.arm) hideEdge(); } });
+
+/* Teclado / pedal Bluetooth */
+document.addEventListener("keydown", e => {
+  if (viewer.hidden) return;
+  if (["ArrowRight", "ArrowDown", "PageDown", " "].includes(e.key)) { e.preventDefault(); step(1); }
+  else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); step(-1); }
+  else if (e.key === "Escape") closeViewer();
+});
+
+/* Girar pantalla o cambiar tamaño: volver a dibujar */
+let rzT;
+window.addEventListener("resize", () => {
+  if (viewer.hidden) return;
+  clearTimeout(rzT);
+  rzT = setTimeout(() => build(V.views[V.i]?.[0] || 0), 150);
+});
+
+/* Mantener la pantalla encendida mientras se lee */
+let lock = null;
+async function wake(on) {
+  try {
+    if (on && navigator.wakeLock) lock = await navigator.wakeLock.request("screen");
+    else if (lock) { await lock.release(); lock = null; }
+  } catch { lock = null; }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !viewer.hidden) wake(true); });
+
+/* ================= Inicio ================= */
+async function boot() {
+  const metas = (await Local.all("meta")) || [];
+  for (const m of metas) songs.set(m.id, m);
+  renderList();
+  // Pedir al sistema que no borre la biblioteca por falta de espacio
+  try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch {}
+}
+boot();
+</script>
+</body>
+</html>
