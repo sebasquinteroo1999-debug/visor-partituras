@@ -1,6 +1,6 @@
 /* Service worker: guarda la app para que abra sin internet.
    Al cambiar cualquier archivo, subir VERSION. */
-const VERSION = "v2.1";
+const VERSION = "v2.2";
 const CACHE = "visor-" + VERSION;
 const SHELL = [
   "./",
@@ -29,8 +29,9 @@ self.addEventListener("activate", e => {
   );
 });
 
-/* Primero la copia guardada (abre al instante y sin internet);
-   en segundo plano trae la versión nueva para la próxima vez. */
+/* Siempre la copia guardada: abre al instante, sin internet y sin gastar datos.
+   La versión nueva llega cuando cambia este archivo (VERSION): el navegador
+   lo revisa al abrir la app, instala todo de nuevo y se ve en la siguiente apertura. */
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
@@ -39,15 +40,15 @@ self.addEventListener("fetch", e => {
 
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const isPage = req.mode === "navigate";
-    const key = isPage ? "./index.html" : req;
+    const key = req.mode === "navigate" ? "./index.html" : req;
     const hit = await cache.match(key, { ignoreSearch: true });
-    const net = fetch(req).then(r => {
-      if (r && r.ok && r.type === "basic") cache.put(key, r.clone());
+    if (hit) return hit;
+    try {
+      const r = await fetch(req);
+      if (r && r.ok && r.type === "basic") e.waitUntil(cache.put(key, r.clone()));
       return r;
-    }).catch(() => null);
-    if (hit) { e.waitUntil(net); return hit; }
-    const r = await net;
-    return r || new Response("Sin conexión", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+    } catch {
+      return new Response("Sin conexión", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+    }
   })());
 });

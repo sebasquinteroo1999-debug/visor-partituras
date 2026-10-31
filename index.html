@@ -140,7 +140,7 @@ if ("serviceWorker" in navigator) {
 import * as pdfjsLib from "./pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
 
-const APP_VERSION = "v2.1";
+const APP_VERSION = "v2.2";
 const $ = s => document.querySelector(s);
 
 /* ================= Almacenamiento local (IndexedDB) ================= */
@@ -509,6 +509,12 @@ function build(page) {
   go(Math.max(0, V.views.findIndex(v => v.includes(page))), false);
 }
 
+let pdfWorker = null;
+function getWorker() {
+  if (!pdfWorker || pdfWorker.destroyed) pdfWorker = new pdfjsLib.PDFWorker();
+  return pdfWorker;
+}
+
 async function openSong(s, start) {
   if (V.opening) return;
   V.opening = true;
@@ -518,7 +524,8 @@ async function openSong(s, start) {
     try { buf = await getBytes(s); }
     catch (e) { toast(e.message || "No se pudo abrir"); return; }
     try {
-      const task = pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) });
+      // Mismo lector (worker) para todas las canciones; el PDF pasa al lector sin copia extra.
+      const task = pdfjsLib.getDocument({ data: new Uint8Array(buf), worker: getWorker() });
       const doc = await task.promise;
       const old = V.task;
       V.task = task;
@@ -616,6 +623,7 @@ async function renderView(k) {
     const cs = [];
     for (const p of pages) cs.push(await drawPage(doc, p, W, H));
     if (gen !== V.gen || doc !== V.doc) { cs.forEach(c => { c.width = 0; c.height = 0; }); return; }
+    if (Math.abs(k - V.i) > 1) { cs.forEach(c => { c.width = 0; c.height = 0; }); slot.dataset.gen = ""; return; }   // ya pasó de largo
     freeSlot(slot);
     const box = document.createElement("div"); box.className = "pair"; box.append(...cs);
     slot.append(box);
@@ -627,7 +635,8 @@ function freeSlot(slot) {
 }
 function manageWindow() {
   V.slots.forEach((slot, k) => {
-    if (Math.abs(k - V.i) > 2 && slot.dataset.gen) { freeSlot(slot); slot.dataset.gen = ""; slot.innerHTML = '<span class="ld">…</span>'; }
+    // solo quedan dibujadas la anterior, la actual y la siguiente
+    if (Math.abs(k - V.i) > 1 && slot.dataset.gen) { freeSlot(slot); slot.dataset.gen = ""; slot.innerHTML = '<span class="ld">…</span>'; }
   });
   renderView(V.i).then(() => { renderView(V.i + 1); renderView(V.i - 1); });
 }
@@ -726,12 +735,21 @@ window.addEventListener("resize", () => {
 });
 
 /* Mantener la pantalla encendida mientras se lee */
-let lock = null;
+// Un solo bloqueo a la vez; se suelta al salir del visor. iOS lo suelta solo al bloquear la pantalla.
+let lock = null, lockReq = false, wantWake = false;
 async function wake(on) {
+  wantWake = on;
+  if (!navigator.wakeLock) return;
   try {
-    if (on && navigator.wakeLock) lock = await navigator.wakeLock.request("screen");
-    else if (lock) { await lock.release(); lock = null; }
-  } catch { lock = null; }
+    if (on) {
+      if (document.hidden || lockReq || (lock && !lock.released)) return;
+      lockReq = true;
+      const l = await navigator.wakeLock.request("screen");
+      lockReq = false;
+      if (!wantWake) { l.release().catch(() => {}); return; }
+      lock = l;
+    } else if (lock) { const l = lock; lock = null; await l.release(); }
+  } catch { lockReq = false; lock = null; }
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && !viewer.hidden) wake(true); });
 
