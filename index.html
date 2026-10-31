@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Partituras">
@@ -22,6 +22,7 @@
   :root{--bg:#121212; --card:#1c1c1c; --ink:#eee; --muted:#9a9a9a; --line:#2c2c2c; --accent:#e07a4a; --danger:#ef5350; --pill:#262626;}
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{touch-action:manipulation;-webkit-text-size-adjust:100%}   /* sin zoom por doble toque */
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
   font:16px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
@@ -139,7 +140,7 @@ if ("serviceWorker" in navigator) {
 import * as pdfjsLib from "./pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
 
-const APP_VERSION = "v2.0";
+const APP_VERSION = "v2.1";
 const $ = s => document.querySelector(s);
 
 /* ================= Almacenamiento local (IndexedDB) ================= */
@@ -475,6 +476,7 @@ function hideEdge() { $("#vedge").style.opacity = 0; }
 
 /* Avanzar o retroceder: al pasar el final abre la canción vecina */
 function step(dir) {
+  if (V.opening) return;   // mientras abre la siguiente canción, ignora toques extra
   const k = V.i + dir;
   if (k >= 0 && k < V.nv) { V.arm = null; hideEdge(); go(k); return; }
   if (!neighbor(dir)) { go(V.i); return; }
@@ -530,6 +532,7 @@ async function openSong(s, start) {
       document.body.style.overflow = "hidden";
       build(p);
       if (old) { try { old.destroy(); } catch {} }
+      resetZoom();
       showBar();
       wake(true);
     } catch (e) { console.error(e); toast("El PDF no se pudo leer"); }
@@ -544,8 +547,39 @@ function closeViewer() {
   for (const sl of V.slots) freeSlot(sl);
   track.innerHTML = ""; V.slots = [];
   wake(false);
+  resetZoom();
 }
 $("#vback").onclick = e => { e.stopPropagation(); closeViewer(); };
+
+/* ================= Anti-zoom (Safari / iPhone / iPad) ================= */
+// 1) Pellizco: Safari usa eventos "gesture"; se cancelan.
+for (const ev of ["gesturestart", "gesturechange", "gestureend"])
+  document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+// 2) Dos dedos sobre la hoja: no dejar que el navegador haga zoom.
+viewer.addEventListener("touchmove", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+// 3) Doble toque rápido sobre la hoja: no dejar que Safari haga zoom (los toques igual pasan página).
+let lastTouchEnd = 0;
+viewer.addEventListener("touchend", e => {
+  if (e.target.closest("button")) return;
+  const now = Date.now();
+  if (now - lastTouchEnd < 400) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+// 4) Si aun así quedó con zoom: volver al tamaño normal.
+const vpMeta = document.querySelector('meta[name="viewport"]');
+const VP_BASE = vpMeta.content;
+let zoomT;
+function resetZoom() {
+  const vv = window.visualViewport;
+  if (!vv || vv.scale <= 1.01) return;
+  vpMeta.content = VP_BASE + ", minimum-scale=1, initial-scale=1";
+  clearTimeout(zoomT); zoomT = setTimeout(() => { vpMeta.content = VP_BASE; }, 300);
+  window.scrollTo(0, 0);
+}
+let rzZoomT;
+if (window.visualViewport) window.visualViewport.addEventListener("resize", () => {
+  clearTimeout(rzZoomT); rzZoomT = setTimeout(resetZoom, 250);
+});
 
 function pageArea() {
   const cs = getComputedStyle(V.slots[0] || viewer);
