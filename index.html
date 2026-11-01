@@ -60,9 +60,7 @@ li.sel{background:var(--pill)}
 /* ---------- Visor ---------- */
 #viewer{position:fixed;inset:0;background:#111;z-index:20;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
 #track{position:absolute;inset:0;display:flex;will-change:transform}
-.slot{flex:0 0 100%;height:100%;display:flex;align-items:center;justify-content:center;padding:var(--st) var(--sr) var(--sb) var(--sl)}
-/* iPad: iPadOS difumina la zona bajo la barra de estado; la hoja empieza más abajo */
-@media (min-width:600px) and (min-height:600px){.slot{padding-top:calc(var(--st) + 34px)}}
+.slot{flex:0 0 100%;height:100%;display:flex;align-items:center;justify-content:center;padding:var(--st) var(--sr) 0 var(--sl)}
 .slot canvas{display:block;background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.05)}
 .slot .pair{display:flex;align-items:center;justify-content:center;gap:2px}
 #viewer.night{background:#000}
@@ -149,7 +147,7 @@ if ("serviceWorker" in navigator) {
 import * as pdfjsLib from "./pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
 
-const APP_VERSION = "v2.5";
+const APP_VERSION = "v2.6";
 const $ = s => document.querySelector(s);
 
 /* ================= Almacenamiento local (IndexedDB) ================= */
