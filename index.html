@@ -46,7 +46,13 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;paddin
 #list li:active{background:var(--pill)}
 .num{min-width:34px;height:30px;padding:0 6px;border-radius:8px;background:var(--pill);display:flex;align-items:center;justify-content:center;font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
 .ttl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:17px}
-.del{color:#fff;background:var(--danger);border-radius:8px;padding:6px 10px;font-size:14px;font-weight:600}
+.chk{width:24px;height:24px;flex:0 0 24px;border-radius:50%;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700}
+li.sel .chk{background:var(--danger);border-color:var(--danger)}
+li.sel{background:var(--pill)}
+#editBar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;gap:10px;justify-content:center;padding:12px calc(var(--sr) + 16px) calc(var(--sb) + 14px) calc(var(--sl) + 16px);background:var(--card);border-top:1px solid var(--line)}
+#editBar button{flex:1;max-width:260px;padding:12px 10px;border-radius:12px;font-weight:700;font-size:16px;background:var(--pill)}
+#editBar #delSel{background:var(--danger);color:#fff}
+#editBar #delSel:disabled{opacity:.4}
 .empty{color:var(--muted);text-align:center;padding:36px 12px;line-height:1.5}
 .count{font-size:13px;color:var(--muted);margin:10px 4px 0}
 #addBtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 18px);background:var(--accent);color:#fff;font-weight:700;font-size:17px;padding:14px 26px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:5}
@@ -109,6 +115,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;paddin
 </main>
 
 <button id="addBtn">+ Agregar PDF</button>
+<div id="editBar" hidden><button id="selAll">Seleccionar todo</button><button id="delSel" disabled>Borrar</button></div>
 <input id="file" type="file" accept="application/pdf,.pdf" multiple hidden>
 <input id="folder" type="file" accept="application/pdf,.pdf" multiple hidden>
 
@@ -140,7 +147,7 @@ if ("serviceWorker" in navigator) {
 import * as pdfjsLib from "./pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
 
-const APP_VERSION = "v2.3";
+const APP_VERSION = "v2.4";
 const $ = s => document.querySelector(s);
 
 /* ================= Almacenamiento local (IndexedDB) ================= */
@@ -176,6 +183,7 @@ const Local = {
 /* ================= Estado ================= */
 let songs = new Map();     // id -> {id,file,num,title,size,hash,added}
 let editing = false, busy = false;
+const selected = new Set();   // ids marcados en modo Editar
 
 function parseName(name) {
   const base = name.replace(/\.pdf$/i, "").trim();
@@ -213,9 +221,11 @@ function renderList() {
     const t = document.createElement("div"); t.className = "ttl"; t.textContent = s.title;
     li.append(n, t);
     if (editing) {
-      const d = document.createElement("button"); d.className = "del"; d.textContent = "Borrar";
-      d.onclick = ev => { ev.stopPropagation(); askDelete(s); };
-      li.append(d);
+      const c = document.createElement("div"); c.className = "chk";
+      c.textContent = selected.has(s.id) ? "✓" : "";
+      li.prepend(c);
+      li.classList.toggle("sel", selected.has(s.id));
+      li.onclick = () => { selected.has(s.id) ? selected.delete(s.id) : selected.add(s.id); renderList(); };
     } else li.onclick = () => openSong(s);
     ul.append(li);
   }
@@ -223,9 +233,48 @@ function renderList() {
   const cn = n => `${n} ${n === 1 ? "canción" : "canciones"}`;
   $("#count").textContent = all.length ? (q ? `${items.length} de ${cn(all.length)}` : cn(all.length)) : "";
   updateStatus();
+  updateEditBar(items);
 }
 $("#q").addEventListener("input", renderList);
-$("#editBtn").onclick = () => { editing = !editing; $("#editBtn").textContent = editing ? "Listo" : "Editar"; renderList(); };
+$("#editBtn").onclick = () => {
+  editing = !editing; selected.clear();
+  $("#editBtn").textContent = editing ? "Listo" : "Editar";
+  $("#editBar").hidden = !editing; $("#addBtn").hidden = editing;
+  renderList();
+};
+
+/* Modo Editar: seleccionar varias o todas y borrarlas juntas */
+let shown = [];
+function updateEditBar(items) {
+  shown = items;
+  for (const id of [...selected]) if (!songs.has(id)) selected.delete(id);
+  const all = items.length > 0 && items.every(s => selected.has(s.id));
+  $("#selAll").textContent = all ? "Quitar selección" : "Seleccionar todo";
+  $("#delSel").disabled = !selected.size;
+  $("#delSel").textContent = selected.size ? `Borrar (${selected.size})` : "Borrar";
+}
+$("#selAll").onclick = () => {
+  const all = shown.length > 0 && shown.every(s => selected.has(s.id));
+  for (const s of shown) all ? selected.delete(s.id) : selected.add(s.id);
+  renderList();
+};
+$("#delSel").onclick = async () => {
+  const list = sorted().filter(s => selected.has(s.id));
+  if (!list.length || busy) return;
+  const n = list.length, one = n === 1;
+  const ok = await dialog({
+    title: one ? "Borrar canción" : `Borrar ${n} canciones`,
+    msg: `${one ? "Se quitará" : "Se quitarán"} de la biblioteca. Los archivos en iCloud no se tocan.`,
+    list: n <= 12 ? list.map(label) : [], ok: `Borrar ${n}`,
+  });
+  if (!ok) return;
+  busy = true;
+  try {
+    for (const s of list) await removeSong(s);
+    toast(`${n} borrada${one ? "" : "s"}`);
+  } catch (e) { console.error(e); toast("No se pudo borrar todo"); }
+  finally { busy = false; selected.clear(); renderList(); }
+};
 
 function updateStatus() {
   const off = navigator.onLine === false;
@@ -358,11 +407,6 @@ async function removeSong(s) {
   await Local.del("pdf", s.id); await Local.del("meta", s.id);
   ls.del("crop:" + s.id); ls.del("pos:" + s.id);
   songs.delete(s.id);
-}
-async function askDelete(s) {
-  if (!await dialog({ msg: `¿Borrar “${label(s)}” de la biblioteca? El archivo en iCloud no se toca.` })) return;
-  try { await removeSong(s); renderList(); toast("Borrada"); }
-  catch (e) { console.error(e); toast("No se pudo borrar"); }
 }
 
 /* ================= Obtener bytes del PDF ================= */
