@@ -36,17 +36,31 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;paddin
 .status{font-size:12px;color:var(--muted);margin:2px 0 10px}
 #updBtn{width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--accent);color:var(--accent);font-weight:600;font-size:16px;margin-bottom:8px;background:var(--card)}
 #updBtn:active{background:var(--pill)}
-.search{position:sticky;top:0;z-index:2;background:var(--bg);padding:6px 0 10px}
+.head{position:sticky;top:0;z-index:2;background:var(--bg);padding:4px 0 8px}
+.search{padding:0}
+#tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{flex:0 0 auto;padding:6px 14px;border-radius:999px;background:var(--pill);font-weight:600;font-size:15px;color:var(--ink)}
+#tabs button.on{background:var(--accent);color:#fff}
+#tabs .plus{padding:6px 12px;color:var(--accent);background:none;border:1px dashed var(--accent)}
+#listTools{display:flex;gap:8px;margin:0 0 8px}
+#listTools button{flex:1;padding:8px;border-radius:10px;background:var(--pill);font-weight:600;font-size:14px}
+#listTools #delList{color:var(--danger)}
+#dlgIn{width:100%;font-size:17px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin:0 0 14px;outline:none;-webkit-appearance:none}
+#idx{position:fixed;right:calc(var(--sr) + 2px);top:50%;transform:translateY(-50%);z-index:4;display:flex;flex-direction:column;justify-content:space-between;align-items:center;width:30px;height:min(62vh,440px);padding:6px 0;border-radius:999px;background:color-mix(in srgb,var(--card) 85%,transparent);border:1px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
+#idx span{font-size:11px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1;pointer-events:none}
+#idxPop{position:fixed;right:calc(var(--sr) + 44px);top:50%;transform:translateY(-50%);z-index:7;background:var(--accent);color:#fff;font-weight:700;font-size:26px;min-width:64px;padding:10px 14px;border-radius:14px;text-align:center;pointer-events:none}
+body.has-idx #lib{padding-right:calc(var(--sr) + 38px)}
 .search input{width:100%;font-size:17px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);outline:none;-webkit-appearance:none}
 .search input:focus{border-color:var(--accent)}
 #list{list-style:none;margin:0;padding:0;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--line)}
 #list:empty{display:none}
-#list li{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer;min-height:54px}
+#list li{display:flex;align-items:center;gap:10px;padding:6px 12px;border-top:1px solid var(--line);cursor:pointer;min-height:38px}
 #list li:first-child{border-top:0}
 #list li:active{background:var(--pill)}
-.num{min-width:34px;height:30px;padding:0 6px;border-radius:8px;background:var(--pill);display:flex;align-items:center;justify-content:center;font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
-.ttl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:17px}
-.chk{width:24px;height:24px;flex:0 0 24px;border-radius:50%;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700}
+.num{min-width:30px;height:24px;padding:0 5px;border-radius:7px;background:var(--pill);display:flex;align-items:center;justify-content:center;font-weight:700;font-variant-numeric:tabular-nums;font-size:14px}
+.ttl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px}
+.chk{width:22px;height:22px;flex:0 0 22px;border-radius:50%;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700}
 li.sel .chk{background:var(--danger);border-color:var(--danger)}
 li.sel{background:var(--pill)}
 #editBar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;gap:10px;justify-content:center;padding:12px calc(var(--sr) + 16px) calc(var(--sb) + 14px) calc(var(--sl) + 16px);background:var(--card);border-top:1px solid var(--line)}
@@ -102,15 +116,19 @@ li.sel{background:var(--pill)}
 
 <main id="lib">
   <div class="top">
-    <h1>Orquesta</h1>
+    <h1 id="h1">Orquesta</h1>
     <button class="btn-text" id="editBtn">Editar</button>
   </div>
   <div class="status" id="status">Cargando…</div>
-  <button id="updBtn">↻ Actualizar desde Orquesta</button>
-  <div class="search"><input id="q" type="search" placeholder="Buscar por nombre o número" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+  <button id="updBtn">↻ Añadir PDF</button>
+  <div class="head">
+    <div id="tabs"></div>
+    <div id="listTools" hidden><button id="renList">Cambiar nombre</button><button id="delList">Borrar lista</button></div>
+    <div class="search"><input id="q" type="search" placeholder="Buscar por nombre o número" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+  </div>
   <ul id="list"></ul>
   <div class="empty" id="empty" hidden>
-    Aún no hay canciones.<br>Toca <b>↻ Actualizar desde Orquesta</b>, abre la carpeta <b>Orquesta</b> en iCloud Drive y elige todos los PDF.
+    Esta lista está vacía.<br>Toca <b>↻ Añadir PDF</b>, abre la carpeta en iCloud Drive y elige todos los PDF de <b id="emptyName">esta lista</b>.
   </div>
   <div class="count" id="count"></div>
 </main>
@@ -135,8 +153,10 @@ li.sel{background:var(--pill)}
   <div id="vdots"><span id="vdotsTxt"></span></div>
 </section>
 
+<div id="idx" hidden></div>
+<div id="idxPop" hidden></div>
 <div id="toast" hidden></div>
-<div id="dlg" hidden><div class="box"><h3 id="dlgTitle"></h3><p id="dlgMsg"></p><ul id="dlgList"></ul><div class="row"><button id="dlgNo">Cancelar</button><button id="dlgOk">Borrar</button></div></div></div>
+<div id="dlg" hidden><div class="box"><h3 id="dlgTitle"></h3><p id="dlgMsg"></p><input id="dlgIn" type="text" hidden autocomplete="off"><ul id="dlgList"></ul><div class="row"><button id="dlgNo">Cancelar</button><button id="dlgOk">Borrar</button></div></div></div>
 
 <script>
 /* Service worker: guarda la app para abrir sin internet */
@@ -148,7 +168,7 @@ if ("serviceWorker" in navigator) {
 import * as pdfjsLib from "./pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
 
-const APP_VERSION = "v2.7";
+const APP_VERSION = "v2.8";
 const $ = s => document.querySelector(s);
 
 /* ================= Almacenamiento local (IndexedDB) ================= */
@@ -182,7 +202,14 @@ const Local = {
 };
 
 /* ================= Estado ================= */
-let songs = new Map();     // id -> {id,file,num,title,size,hash,added}
+let songs = new Map();     // id -> {id,file,num,title,size,hash,added,list}
+/* Listas: se guardan en IndexedDB (store meta, clave "__lists") */
+const DEF_LISTS = [{ id: "orquesta", name: "Orquesta" }, { id: "invenciones", name: "Invenciones" }];
+let lists = DEF_LISTS.map(l => ({ ...l }));
+let cur = "orquesta";
+const listOf = s => s.list || "orquesta";
+const curName = () => (lists.find(l => l.id === cur) || lists[0]).name;
+async function saveLists() { await Local.put("meta", "__lists", { kind: "lists", items: lists }); }
 let editing = false, busy = false;
 const selected = new Set();   // ids marcados en modo Editar
 
@@ -190,10 +217,12 @@ function parseName(name) {
   const base = name.replace(/\.pdf$/i, "").trim();
   const m = base.match(/^(\d+)\s*[.\-_)]?\s*(.*)$/);
   if (m) return { num: Number(m[1]), title: (m[2] || base).trim() };
+  const t = base.match(/^(.*\D)\s*(\d+)$/);   // "Invención 12" → número 12
+  if (t) return { num: Number(t[2]), title: base };
   return { num: null, title: base };
 }
 const norm = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-const label = s => (s.num != null ? s.num + ". " : "") + s.title;
+const label = s => (s.num != null && !s.title.endsWith(" " + s.num) ? s.num + ". " : "") + s.title;
 const isPdf = f => /\.pdf$/i.test(f.name) || f.type === "application/pdf";
 const newId = () => "s-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
 
@@ -204,8 +233,8 @@ async function sha(buf) {
   } catch { return "size:" + buf.byteLength; }
 }
 
-function sorted() {
-  return [...songs.values()].sort((a, b) =>
+function sorted(list = cur) {
+  return [...songs.values()].filter(s => listOf(s) === list).sort((a, b) =>
     (a.num ?? 1e9) - (b.num ?? 1e9) || a.title.localeCompare(b.title, "es"));
 }
 
@@ -233,14 +262,107 @@ function renderList() {
   $("#empty").hidden = all.length > 0;
   const cn = n => `${n} ${n === 1 ? "canción" : "canciones"}`;
   $("#count").textContent = all.length ? (q ? `${items.length} de ${cn(all.length)}` : cn(all.length)) : "";
+  $("#h1").textContent = curName(); $("#emptyName").textContent = curName();
+  renderTabs();
   updateStatus();
   updateEditBar(items);
+  buildIndex(q ? [] : items);
 }
+
+/* ================= Pestañas de listas ================= */
+function renderTabs() {
+  const box = $("#tabs"); box.innerHTML = "";
+  for (const l of lists) {
+    const b = document.createElement("button"); b.textContent = l.name;
+    b.classList.toggle("on", l.id === cur);
+    b.onclick = () => { if (l.id === cur) return; cur = l.id; ls.set("curList", cur); selected.clear(); $("#q").value = ""; renderList(); window.scrollTo(0, 0); };
+    box.append(b);
+  }
+  const p = document.createElement("button"); p.className = "plus"; p.textContent = "+"; p.setAttribute("aria-label", "Nueva lista");
+  p.onclick = newList; box.append(p);
+  $("#listTools").hidden = !editing;
+  box.querySelector(".on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
+}
+async function newList() {
+  if (busy) return;
+  const name = await dialog({ title: "Nueva lista", input: "", placeholder: "Nombre de la lista", ok: "Crear", danger: false });
+  if (!name) return;
+  if (lists.some(l => norm(l.name) === norm(name))) { toast("Ya hay una lista con ese nombre"); return; }
+  const id = "l-" + Date.now().toString(36);
+  lists.push({ id, name }); await saveLists();
+  cur = id; ls.set("curList", cur); selected.clear(); $("#q").value = "";
+  renderList(); toast(`Lista “${name}” creada`);
+}
+$("#renList").onclick = async () => {
+  const l = lists.find(x => x.id === cur); if (!l) return;
+  const name = await dialog({ title: "Cambiar nombre", input: l.name, ok: "Guardar", danger: false });
+  if (!name || name === l.name) return;
+  if (lists.some(x => x !== l && norm(x.name) === norm(name))) { toast("Ya hay una lista con ese nombre"); return; }
+  l.name = name; await saveLists(); renderList();
+};
+$("#delList").onclick = async () => {
+  if (busy) return;
+  if (lists.length < 2) { toast("Debe quedar al menos una lista"); return; }
+  const l = lists.find(x => x.id === cur), inList = sorted();
+  const ok = await dialog({
+    title: `Borrar lista “${l.name}”`,
+    msg: inList.length ? `Se quitarán también sus ${inList.length} canciones de la app. Los archivos en iCloud no se tocan.` : "La lista está vacía.",
+    ok: "Borrar lista",
+  });
+  if (!ok) return;
+  busy = true;
+  try { for (const s of inList) await removeSong(s); } finally { busy = false; }
+  lists = lists.filter(x => x !== l); await saveLists();
+  cur = lists[0].id; ls.set("curList", cur); selected.clear();
+  renderList(); toast("Lista borrada");
+};
+
+/* ================= Índice lateral (saltar por número) ================= */
+let marks = [];
+function buildIndex(items) {
+  const idx = $("#idx"); idx.innerHTML = ""; marks = [];
+  if (items.length >= 20) {
+    const numbered = items.filter(s => s.num != null).length >= items.length * 0.6;
+    if (numbered) {
+      // Una marca por cada decena: 1, 10, 20, 30…
+      let lastDec = -1;
+      items.forEach((s, i) => {
+        if (s.num == null) return;
+        const d = Math.floor(s.num / 10);
+        if (d !== lastDec) { lastDec = d; marks.push({ i, t: i === 0 ? String(s.num) : String(d === 0 ? s.num : d * 10) }); }
+      });
+      if (marks.length && marks[0].i !== 0) marks.unshift({ i: 0, t: String(items[0].num ?? "·") });
+    } else {
+      let last = "";
+      items.forEach((s, i) => { const c = norm(s.title).charAt(0).toUpperCase() || "#"; if (c !== last) { last = c; marks.push({ i, t: c }); } });
+    }
+    // Si son muchas marcas, dejar como máximo 14
+    if (marks.length > 14) { const st = Math.ceil(marks.length / 14); marks = marks.filter((_, k) => k % st === 0); }
+    for (const m of marks) { const sp = document.createElement("span"); sp.textContent = m.t; idx.append(sp); }
+  }
+  const on = marks.length > 1;
+  idx.hidden = !on; document.body.classList.toggle("has-idx", on);
+}
+function jumpTo(y) {
+  const r = $("#idx").getBoundingClientRect();
+  const k = Math.max(0, Math.min(marks.length - 1, Math.floor((y - r.top) / r.height * marks.length)));
+  const m = marks[k]; if (!m) return;
+  const li = $("#list").children[m.i]; if (!li) return;
+  const head = $(".head").offsetHeight;
+  window.scrollTo(0, li.getBoundingClientRect().top + window.scrollY - head - 4);
+  const pop = $("#idxPop"); pop.textContent = m.t; pop.hidden = false;
+}
+let idxDrag = false;
+$("#idx").addEventListener("pointerdown", e => { idxDrag = true; $("#idx").setPointerCapture?.(e.pointerId); jumpTo(e.clientY); e.preventDefault(); });
+$("#idx").addEventListener("pointermove", e => { if (idxDrag) jumpTo(e.clientY); });
+const idxEnd = () => { idxDrag = false; setTimeout(() => { if (!idxDrag) $("#idxPop").hidden = true; }, 350); };
+$("#idx").addEventListener("pointerup", idxEnd);
+$("#idx").addEventListener("pointercancel", idxEnd);
 $("#q").addEventListener("input", renderList);
 $("#editBtn").onclick = () => {
   editing = !editing; selected.clear();
   $("#editBtn").textContent = editing ? "Listo" : "Editar";
-  $("#editBar").hidden = !editing; $("#addBtn").hidden = editing;
+  $("#editBar").hidden = !editing; $("#addBtn").hidden = editing; $("#listTools").hidden = !editing;
   renderList();
 };
 
@@ -291,8 +413,10 @@ function toast(msg, ms = 2600) {
 }
 
 /* Ventana de aviso / confirmación */
-function dialog({ title = "", msg = "", list = [], ok = "Borrar", cancel = "Cancelar", danger = true }) {
+function dialog({ title = "", msg = "", list = [], ok = "Borrar", cancel = "Cancelar", danger = true, input = null, placeholder = "" }) {
   return new Promise(res => {
+    const inp = $("#dlgIn"); inp.hidden = input === null; inp.value = input ?? ""; inp.placeholder = placeholder;
+    $("#dlgMsg").hidden = !msg;
     $("#dlgTitle").textContent = title; $("#dlgTitle").hidden = !title;
     $("#dlgMsg").textContent = msg;
     const ul = $("#dlgList"); ul.innerHTML = "";
@@ -301,8 +425,11 @@ function dialog({ title = "", msg = "", list = [], ok = "Borrar", cancel = "Canc
     $("#dlgOk").textContent = ok; $("#dlgOk").classList.toggle("plain", !danger);
     $("#dlgNo").textContent = cancel || ""; $("#dlgNo").hidden = !cancel;
     $("#dlg").hidden = false;
-    $("#dlgOk").onclick = () => { $("#dlg").hidden = true; res(true); };
-    $("#dlgNo").onclick = () => { $("#dlg").hidden = true; res(false); };
+    if (input !== null) setTimeout(() => inp.focus(), 50);
+    const done = v => { $("#dlg").hidden = true; inp.blur(); res(v); };
+    $("#dlgOk").onclick = () => done(input !== null ? inp.value.trim() : true);
+    $("#dlgNo").onclick = () => done(input !== null ? "" : false);
+    inp.onkeydown = e => { if (e.key === "Enter") $("#dlgOk").click(); };
   });
 }
 
@@ -311,7 +438,7 @@ async function addFile(f, buf, hash) {
   buf = buf || await f.arrayBuffer();
   hash = hash || await sha(buf);
   const { num, title } = parseName(f.name);
-  const entry = { id: newId(), file: f.name, num, title, size: buf.byteLength, hash, added: Date.now() };
+  const entry = { id: newId(), file: f.name, num, title, size: buf.byteLength, hash, added: Date.now(), list: cur };
   await Local.put("pdf", entry.id, buf);
   await Local.put("meta", entry.id, entry);
   songs.set(entry.id, entry);
@@ -322,7 +449,7 @@ $("#file").addEventListener("change", async e => {
   const files = [...e.target.files].filter(isPdf); e.target.value = "";
   if (!files.length || busy) return;
   busy = true;
-  const names = new Set([...songs.values()].map(s => s.file.toLowerCase()));
+  const names = new Set(sorted().map(s => s.file.toLowerCase()));
   let ok = 0, dup = 0, fail = 0;
   try {
     for (let i = 0; i < files.length; i++) {
@@ -341,13 +468,13 @@ $("#file").addEventListener("change", async e => {
   renderList();
 });
 
-/* ================= Actualizar desde Orquesta ================= */
+/* ================= Añadir PDF (compara con la lista abierta) ================= */
 $("#updBtn").onclick = () => { if (!busy) $("#folder").click(); };
 $("#folder").addEventListener("change", async e => {
   const files = [...e.target.files].filter(isPdf); e.target.value = "";
   if (!files.length || busy) return;
   busy = true;
-  const byName = new Map([...songs.values()].map(s => [s.file.toLowerCase(), s]));
+  const byName = new Map(sorted().map(s => [s.file.toLowerCase(), s]));
   const seen = new Set();
   let added = 0, replaced = 0, same = 0;
   const bad = [];
@@ -386,14 +513,14 @@ $("#folder").addEventListener("change", async e => {
 
   const missing = sorted().filter(s => !seen.has(s.file.toLowerCase()));
   await dialog({
-    title: "Actualizar desde Orquesta",
+    title: "Añadir PDF · " + curName(),
     msg: `${added} nueva${added === 1 ? "" : "s"} · ${replaced} actualizada${replaced === 1 ? "" : "s"} · ${same} igual${same === 1 ? "" : "es"}` + (bad.length ? ` · ${bad.length} con error` : ""),
     list: bad, ok: "Listo", cancel: "", danger: false,
   });
   if (missing.length) {
     const quitar = await dialog({
       title: "Ya no están en la carpeta",
-      msg: `${missing.length} canción${missing.length === 1 ? "" : "es"} de la biblioteca no venía${missing.length === 1 ? "" : "n"} en lo que elegiste. ¿Quitarla${missing.length === 1 ? "" : "s"} de la biblioteca?`,
+      msg: `${missing.length} canción${missing.length === 1 ? "" : "es"} de “${curName()}” no venía${missing.length === 1 ? "" : "n"} en lo que elegiste. ¿Quitarla${missing.length === 1 ? "" : "s"} de la lista?`,
       list: missing.map(label), ok: "Quitar", cancel: "Dejar",
     });
     if (quitar) {
@@ -504,7 +631,7 @@ async function getCrop(page, p) {
 /* Canción vecina en el orden de la lista */
 function neighbor(dir) {
   if (!V.song) return null;
-  const all = sorted(), k = all.findIndex(x => x.id === V.song.id);
+  const all = sorted(listOf(V.song)), k = all.findIndex(x => x.id === V.song.id);
   return k < 0 ? null : all[k + dir] || null;
 }
 let edgeT;
@@ -800,7 +927,14 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && !v
 /* ================= Inicio ================= */
 async function boot() {
   const metas = (await Local.all("meta")) || [];
-  for (const m of metas) songs.set(m.id, m);
+  for (const m of metas) {
+    if (m && m.kind === "lists") { if (Array.isArray(m.items) && m.items.length) lists = m.items; continue; }
+    if (m && m.id) songs.set(m.id, m);
+  }
+  // Canciones de una lista que ya no existe → a la primera lista
+  for (const s of songs.values()) if (!lists.some(l => l.id === listOf(s))) s.list = lists[0].id;
+  const saved = ls.get("curList");
+  cur = lists.some(l => l.id === saved) ? saved : lists[0].id;
   renderList();
   // Pedir al sistema que no borre la biblioteca por falta de espacio
   try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch {}
