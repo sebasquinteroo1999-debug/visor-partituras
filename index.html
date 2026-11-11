@@ -148,6 +148,7 @@ li.sel{background:var(--pill)}
     <button class="vbtn" id="vcrop" aria-label="Recortar márgenes">✂</button>
     <button class="vbtn" id="vtwo" aria-label="Una o dos páginas">2 págs</button>
     <button class="vbtn" id="vnight" aria-label="Modo noche">☾</button>
+    <button class="vbtn" id="vfull" aria-label="Pantalla completa" hidden>⛶</button>
   </div>
   <div id="vedge"></div>
   <div id="vdots"><span id="vdotsTxt"></span></div>
@@ -168,7 +169,7 @@ if ("serviceWorker" in navigator) {
 import * as pdfjsLib from "./pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
 
-const APP_VERSION = "v2.8";
+const APP_VERSION = "v2.9";
 const $ = s => document.querySelector(s);
 
 /* ================= Almacenamiento local (IndexedDB) ================= */
@@ -559,6 +560,23 @@ function applyNight() {
 }
 $("#vnight").onclick = e => { e.stopPropagation(); ls.set("night", ls.get("night") === "1" ? "0" : "1"); applyNight(); showBar(); };
 applyNight();
+
+/* Pantalla completa (iPad). En iPhone no existe para páginas: el botón no aparece. */
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+const fsOk = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+$("#vfull").hidden = !fsOk;
+function applyFull() { $("#vfull").classList.toggle("on", !!fsEl()); }
+$("#vfull").onclick = async e => {
+  e.stopPropagation();
+  const d = document.documentElement;
+  try {
+    if (fsEl()) await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else await (d.requestFullscreen || d.webkitRequestFullscreen).call(d);
+  } catch { toast("Este equipo no permite pantalla completa"); }
+  applyFull(); showBar();
+};
+document.addEventListener("fullscreenchange", applyFull);
+document.addEventListener("webkitfullscreenchange", applyFull);
 
 /* Una o dos páginas: se recuerda por orientación (vertical / horizontal) */
 const isLand = () => viewer.clientWidth > viewer.clientHeight;
