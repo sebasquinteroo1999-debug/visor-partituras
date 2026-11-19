@@ -46,6 +46,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;paddin
 #listTools{display:flex;gap:8px;margin:0 0 8px}
 #listTools button{flex:1;padding:8px;border-radius:10px;background:var(--pill);font-weight:600;font-size:14px}
 #listTools #delList{color:var(--danger)}
+#listTools #movL,#listTools #movR{flex:0 0 auto;padding:8px 12px;color:var(--accent)}
+#listTools button:disabled{opacity:.35}
 #dlgIn{width:100%;font-size:17px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin:0 0 14px;outline:none;-webkit-appearance:none}
 #idx{position:fixed;right:calc(var(--sr) + 2px);top:50%;transform:translateY(-50%);z-index:4;display:flex;flex-direction:column;justify-content:space-between;align-items:center;width:30px;height:min(62vh,440px);padding:6px 0;border-radius:999px;background:color-mix(in srgb,var(--card) 85%,transparent);border:1px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
 #idx span{font-size:11px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1;pointer-events:none}
@@ -123,7 +125,7 @@ li.sel{background:var(--pill)}
   <button id="updBtn">↻ Añadir PDF</button>
   <div class="head">
     <div id="tabs"></div>
-    <div id="listTools" hidden><button id="renList">Cambiar nombre</button><button id="delList">Borrar lista</button></div>
+    <div id="listTools" hidden><button id="movL" aria-label="Mover lista a la izquierda">‹ Mover</button><button id="renList">Cambiar nombre</button><button id="delList">Borrar lista</button><button id="movR" aria-label="Mover lista a la derecha">Mover ›</button></div>
     <div class="search"><input id="q" type="search" placeholder="Buscar por nombre o número" autocomplete="off" autocorrect="off" spellcheck="false"></div>
   </div>
   <ul id="list"></ul>
@@ -167,7 +169,7 @@ if ("serviceWorker" in navigator) {
 import * as pdfjsLib from "./pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
 
-const APP_VERSION = "v2.12";
+const APP_VERSION = "v2.13";
 const $ = s => document.querySelector(s);
 
 /* ================= Almacenamiento local (IndexedDB) ================= */
@@ -280,6 +282,8 @@ function renderTabs() {
   const p = document.createElement("button"); p.className = "plus"; p.textContent = "+"; p.setAttribute("aria-label", "Nueva lista");
   p.onclick = newList; box.append(p);
   $("#listTools").hidden = !editing;
+  const i = lists.findIndex(l => l.id === cur);
+  $("#movL").disabled = i <= 0; $("#movR").disabled = i < 0 || i >= lists.length - 1;
   box.querySelector(".on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
 }
 async function newList() {
@@ -299,6 +303,15 @@ $("#renList").onclick = async () => {
   if (lists.some(x => x !== l && norm(x.name) === norm(name))) { toast("Ya hay una lista con ese nombre"); return; }
   l.name = name; await saveLists(); renderList();
 };
+/* Reordenar listas (modo Editar): mueve la lista abierta un lugar */
+async function moveList(d) {
+  const i = lists.findIndex(l => l.id === cur), j = i + d;
+  if (i < 0 || j < 0 || j >= lists.length) return;
+  [lists[i], lists[j]] = [lists[j], lists[i]];
+  await saveLists(); renderTabs();
+}
+$("#movL").onclick = () => moveList(-1);
+$("#movR").onclick = () => moveList(1);
 $("#delList").onclick = async () => {
   if (busy) return;
   if (lists.length < 2) { toast("Debe quedar al menos una lista"); return; }
