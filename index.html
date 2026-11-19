@@ -135,7 +135,6 @@ li.sel{background:var(--pill)}
 
 <button id="addBtn">+ Agregar PDF</button>
 <div id="editBar" hidden><button id="selAll">Seleccionar todo</button><button id="delSel" disabled>Borrar</button></div>
-<input id="file" type="file" accept="application/pdf,.pdf" multiple hidden>
 <input id="folder" type="file" accept="application/pdf,.pdf" multiple hidden>
 
 <section id="viewer" hidden>
@@ -168,7 +167,7 @@ if ("serviceWorker" in navigator) {
 import * as pdfjsLib from "./pdf.min.mjs";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./pdf.worker.min.mjs", import.meta.url).href;
 
-const APP_VERSION = "v2.11";
+const APP_VERSION = "v2.12";
 const $ = s => document.querySelector(s);
 
 /* ================= Almacenamiento local (IndexedDB) ================= */
@@ -444,32 +443,9 @@ async function addFile(f, buf, hash) {
   songs.set(entry.id, entry);
 }
 
-$("#addBtn").onclick = () => { if (!busy) $("#file").click(); };
-$("#file").addEventListener("change", async e => {
-  const files = [...e.target.files].filter(isPdf); e.target.value = "";
-  if (!files.length || busy) return;
-  busy = true;
-  const names = new Set(sorted().map(s => s.file.toLowerCase()));
-  let ok = 0, dup = 0, fail = 0;
-  try {
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i];
-      if (names.has(f.name.toLowerCase())) { dup++; continue; }
-      toast(`Agregando ${i + 1} de ${files.length}…`, 0);
-      try { await addFile(f); names.add(f.name.toLowerCase()); ok++; }
-      catch (err) { console.error(err); fail++; }
-    }
-  } finally { busy = false; }
-  const parts = [];
-  if (ok) parts.push(`${ok} agregada${ok > 1 ? "s" : ""}`);
-  if (dup) parts.push(`${dup} ya estaba${dup > 1 ? "n" : ""}`);
-  if (fail) parts.push(`${fail} con error`);
-  toast(parts.join(" · ") || "Nada nuevo");
-  renderList();
-});
-
 /* ================= Añadir PDF (compara con la lista abierta) ================= */
-$("#updBtn").onclick = () => { if (!busy) $("#folder").click(); };
+/* Los dos botones ("↻ Añadir PDF" y "+ Agregar PDF") hacen lo mismo */
+$("#updBtn").onclick = $("#addBtn").onclick = () => { if (!busy) $("#folder").click(); };
 $("#folder").addEventListener("change", async e => {
   const files = [...e.target.files].filter(isPdf); e.target.value = "";
   if (!files.length || busy) return;
