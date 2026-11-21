@@ -1,6 +1,6 @@
 /* Service worker: guarda la app para que abra sin internet.
    Al cambiar cualquier archivo, subir VERSION. */
-const VERSION = "v2.13";
+const VERSION = "v2.14";
 const CACHE = "visor-" + VERSION;
 const SHELL = [
   "./",
@@ -37,6 +37,7 @@ self.addEventListener("fetch", e => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.includes("/intros/")) return; /* Intros tiene su propio service worker */
 
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
