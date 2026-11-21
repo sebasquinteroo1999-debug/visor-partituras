@@ -42,6 +42,11 @@ h1{font-family:var(--f-disp);font-weight:700;font-size:2.4rem;line-height:1;marg
 .hint{color:var(--muted);font-size:.88rem;margin:0}
 .hint kbd{font-family:var(--f-disp);font-size:.85rem;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--fg)}
 .hint a{color:var(--accent)}
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-weight:600;font-size:.9rem;white-space:nowrap}
+.tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tab.add{border-style:dashed}
 .count{font-family:var(--f-disp);font-size:1rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 li.song{display:grid;grid-template-columns:1fr auto;align-items:stretch;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
@@ -107,9 +112,10 @@ textarea{min-height:260px;line-height:1.5}
     </div>
   </header>
   <p class="hint">Toca un tema y suena su inicio por los audífonos. Pedal o flechas: <kbd>→</kbd> siguiente, <kbd>←</kbd> anterior, <kbd>espacio</kbd> repetir. Para cargar, elige todos los MP3 a la vez: cada uno se asigna por su nombre.</p>
+  <div class="tabs" id="tabs" role="group" aria-label="Listas"></div>
   <div class="count" id="count"></div>
   <ol id="list"></ol>
-  <div class="hint" id="ver">Guardado en este equipo · v1.0</div>
+  <div class="hint" id="ver">Guardado en este equipo · v1.1</div>
 </div>
 
 <div class="deck">
@@ -170,13 +176,14 @@ textarea{min-height:260px;line-height:1.5}
 
 <div class="sheet" id="lister" hidden>
   <div class="card">
-    <h2>Editar lista</h2>
-    <label class="f">Nombre de la tanda<input type="text" id="lsName"></label>
+    <h2 id="lsTitle">Editar lista</h2>
+    <label class="f">Nombre de la lista<input type="text" id="lsName"></label>
     <label class="f">Temas en orden, uno por línea<textarea id="lsText"></textarea></label>
-    <div class="hint">El audio queda guardado por nombre de tema: si un tema vuelve en otra tanda, ya tiene su intro.</div>
+    <div class="hint">El audio queda guardado por nombre de tema: si un tema está en varias listas, comparte la misma intro.</div>
     <div class="row">
       <button class="btn primary" id="lsSave">Guardar</button>
       <button class="btn" id="lsClose">Cancelar</button>
+      <button class="btn danger" id="lsDel">Borrar lista</button>
     </div>
   </div>
 </div>
@@ -186,7 +193,7 @@ textarea{min-height:260px;line-height:1.5}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='v1.0';
+const APP_VERSION='v1.1';
 const DEF_NAME='Tanda 22-nov · La Sonora Hispana';
 const DEF_SONGS=['Daniela','Fantasía Nocturna','Adonay','El Teléfono','Boquita de Caramelo','Así Empezaron Mamá y Papá','El Hijo Ausente','El Año Viejo','Tormentos','Fiesta en mi Pueblo'];
 const PEAKS_PER_S=20, DEF_DUR=12;
@@ -207,10 +214,15 @@ const dbPut=rec=>tx('readwrite',st=>st.put(rec));
 const dbDel=key=>tx('readwrite',st=>st.delete(key));
 
 /* ---------- estado ---------- */
-const S={name:ls.get('tandaName',DEF_NAME),songs:ls.get('tandaSongs',DEF_SONGS),cur:ls.get('cur',0),
+const S={lists:ls.get('lists',null),lid:ls.get('lid',null),name:'',songs:[],cur:0,
   recs:new Map(),urls:new Map(),playing:null,auto:ls.get('autoplay',true)};
-if(!Array.isArray(S.songs)||!S.songs.length) S.songs=DEF_SONGS.slice();
-if(S.cur>=S.songs.length) S.cur=0;
+if(!Array.isArray(S.lists)||!S.lists.length){const old=ls.get('tandaSongs',null);
+  S.lists=[{id:'l1',name:ls.get('tandaName',DEF_NAME),songs:Array.isArray(old)&&old.length?old:DEF_SONGS.slice(),cur:ls.get('cur',0)}];}
+function saveLists(){const L=curList();if(L){L.cur=S.cur;}ls.set('lists',S.lists);ls.set('lid',S.lid);}
+function curList(){return S.lists.find(l=>l.id===S.lid);}
+function useList(id){if(!S.lists.some(l=>l.id===id))id=S.lists[0].id;S.lid=id;const L=curList();S.name=L.name;S.songs=L.songs;
+  S.cur=(L.cur>=0&&L.cur<L.songs.length)?L.cur:0;ls.set('lid',id);}
+useList(S.lid);
 
 /* ---------- audio ---------- */
 let actx=null;
@@ -249,6 +261,9 @@ function metaText(r){if(!r)return['Sin audio · toca para cargar el MP3','no'];i
   return[Math.round(r.dur)+' s desde '+fmt(r.start),'ok'];}
 function render(){
   $('tandaName').textContent=S.name;
+  const tb=$('tabs');tb.textContent='';S.lists.forEach(l=>{const b=document.createElement('button');b.className='tab';b.dataset.lid=l.id;
+    b.textContent=l.name;b.setAttribute('aria-pressed',l.id===S.lid?'true':'false');tb.append(b);});
+  const ad=document.createElement('button');ad.className='tab add';ad.dataset.add='1';ad.textContent='+ Nueva lista';tb.append(ad);
   const ol=$('list');ol.textContent='';let have=0;
   S.songs.forEach((t,i)=>{const k=norm(t),r=S.recs.get(k);if(r&&r.clip)have++;
     const li=document.createElement('li');li.className='song'+(i===S.cur?' cur':'')+(S.playing===k?' playing':'');
@@ -266,16 +281,16 @@ function render(){
   $('toggle').disabled=!(r&&r.clip);$('prev').disabled=S.cur<=0;$('next').disabled=S.cur>=S.songs.length-1;
   $('autoplay').checked=!!S.auto;
 }
-function select(i,play){if(i<0||i>=S.songs.length)return;S.cur=i;ls.set('cur',i);
+function select(i,play){if(i<0||i>=S.songs.length)return;S.cur=i;saveLists();
   if(play&&S.recs.get(keyOf(i))?.clip)playKey(keyOf(i));else{if(S.playing)stopAudio();render();}
-  const el=$('list').children[i];if(el&&el.scrollIntoView)el.scrollIntoView({block:'nearest',behavior:'smooth'});wake();}
-function toggle(){const k=keyOf(S.cur);if(S.playing===k){stopAudio();render();}else playKey(k);wake();}
+  const el=$('list').children[i];if(el&&el.scrollIntoView)el.scrollIntoView({block:'nearest',behavior:'smooth'});}
+function toggle(){const k=keyOf(S.cur);if(S.playing===k){stopAudio();render();}else playKey(k);}
 let toastT=0;function toast(m,ms){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);if(ms!==0)toastT=setTimeout(()=>t.hidden=true,ms||2600);}
 
 $('list').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.adj!=null){const i=+b.dataset.adj;S.cur=i;ls.set('cur',i);const k=keyOf(i);if(S.recs.has(k))openEditor(i);else pickOne(i);return;}
+  if(b.dataset.adj!=null){const i=+b.dataset.adj;S.cur=i;saveLists();const k=keyOf(i);if(S.recs.has(k))openEditor(i);else pickOne(i);return;}
   const i=+b.dataset.i;const k=keyOf(i);
-  if(!S.recs.get(k)?.clip){S.cur=i;ls.set('cur',i);render();pickOne(i);return;}
+  if(!S.recs.get(k)?.clip){S.cur=i;saveLists();render();pickOne(i);return;}
   if(S.cur===i&&S.playing===k){stopAudio();render();return;}
   select(i,true);});
 $('prev').onclick=()=>select(S.cur-1,S.auto);
@@ -291,9 +306,7 @@ document.addEventListener('keydown',e=>{
 });
 
 /* pantalla encendida */
-let wl=null;async function wake(){try{if(!wl&&navigator.wakeLock){wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>wl=null);}}catch(e){}}
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&wl===null&&S.touched)wake();});
-document.addEventListener('pointerdown',()=>{S.touched=true;},{once:true});
+
 
 /* ---------- carga de MP3 ---------- */
 let oneTarget=-1;
@@ -371,11 +384,27 @@ $('editor').addEventListener('click',e=>{if(e.target===$('editor'))closeEditor()
 window.addEventListener('resize',()=>{if(!$('editor').hidden)draw();});
 
 /* ---------- lista ---------- */
-$('editList').onclick=()=>{$('lsName').value=S.name;$('lsText').value=S.songs.join('\n');$('lister').hidden=false;};
+let lsMode='edit',lsConfirm=false;
+function openLister(mode){lsMode=mode;lsConfirm=false;$('lsDel').textContent='Borrar lista';
+  $('lsTitle').textContent=mode==='new'?'Nueva lista':'Editar lista';
+  $('lsName').value=mode==='new'?'':S.name;$('lsText').value=mode==='new'?'':S.songs.join('\n');
+  $('lsDel').hidden=mode==='new'||S.lists.length<2;$('lister').hidden=false;}
+$('editList').onclick=()=>openLister('edit');
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.add){openLister('new');return;}
+  if(b.dataset.lid===S.lid)return;saveLists();stopAudio();useList(b.dataset.lid);render();window.scrollTo(0,0);});
 $('lsClose').onclick=()=>$('lister').hidden=true;
 $('lsSave').onclick=()=>{const songs=$('lsText').value.split('\n').map(s=>s.replace(/^\s*\d+\s*[.\-)]\s*/,'').trim()).filter(Boolean);
-  if(!songs.length)return toast('La lista necesita al menos un tema');S.songs=songs;S.name=$('lsName').value.trim()||'Tanda';
-  ls.set('tandaSongs',songs);ls.set('tandaName',S.name);if(S.cur>=songs.length)S.cur=0;ls.set('cur',S.cur);$('lister').hidden=true;stopAudio();render();};
+  if(!songs.length)return toast('La lista necesita al menos un tema');const name=$('lsName').value.trim()||'Lista '+(S.lists.length+(lsMode==='new'?1:0));
+  saveLists();
+  if(lsMode==='new'){const id='l'+Date.now().toString(36);S.lists.push({id,name,songs,cur:0});useList(id);}
+  else{const L=curList();L.name=name;L.songs=songs;if(L.cur>=songs.length)L.cur=0;useList(L.id);}
+  saveLists();$('lister').hidden=true;stopAudio();render();
+  const t=$('tabs').querySelector('[aria-pressed="true"]');if(t&&t.scrollIntoView)t.scrollIntoView({inline:'nearest',block:'nearest'});};
+$('lsDel').onclick=()=>{if(S.lists.length<2)return;
+  if(!lsConfirm){lsConfirm=true;$('lsDel').textContent='¿Borrar "'+S.name+'"? Toca otra vez';return;}
+  S.lists=S.lists.filter(l=>l.id!==S.lid);useList(S.lists[0].id);saveLists();$('lister').hidden=true;stopAudio();render();
+  toast('Lista borrada. Los audios siguen guardados por tema.');};
 
 /* ---------- inicio ---------- */
 function net(){$('ver').textContent='Guardado en este equipo'+(navigator.onLine?'':' · sin conexión')+' · '+APP_VERSION;}
