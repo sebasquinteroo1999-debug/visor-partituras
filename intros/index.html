@@ -104,7 +104,6 @@ textarea{min-height:260px;line-height:1.5}
   <header>
     <div>
       <h1>Intros</h1>
-      <div class="tanda" id="tandaName"></div>
     </div>
     <div class="actions">
       <button class="btn primary" id="loadMany">Cargar MP3</button>
@@ -115,7 +114,7 @@ textarea{min-height:260px;line-height:1.5}
   <div class="tabs" id="tabs" role="group" aria-label="Listas"></div>
   <div class="count" id="count"></div>
   <ol id="list"></ol>
-  <div class="hint" id="ver">Guardado en este equipo · v1.1</div>
+  <div class="hint" id="ver">Guardado en este equipo · v1.2</div>
 </div>
 
 <div class="deck">
@@ -178,8 +177,9 @@ textarea{min-height:260px;line-height:1.5}
   <div class="card">
     <h2 id="lsTitle">Editar lista</h2>
     <label class="f">Nombre de la lista<input type="text" id="lsName"></label>
-    <label class="f">Temas en orden, uno por línea<textarea id="lsText"></textarea></label>
-    <div class="hint">El audio queda guardado por nombre de tema: si un tema está en varias listas, comparte la misma intro.</div>
+    <label class="f" id="lsTextWrap">Temas en orden, uno por línea<textarea id="lsText"></textarea></label>
+    <div class="hint" id="lsNewHint">Después toca <b>Cargar MP3</b> y elige los audios: los temas se crean y se ordenan por el número del archivo.</div>
+    <div class="hint" id="lsEditHint">El audio queda guardado por nombre de tema: si un tema está en varias listas, comparte la misma intro.</div>
     <div class="row">
       <button class="btn primary" id="lsSave">Guardar</button>
       <button class="btn" id="lsClose">Cancelar</button>
@@ -193,7 +193,7 @@ textarea{min-height:260px;line-height:1.5}
 <script>
 (function(){
 'use strict';
-const APP_VERSION='v1.1';
+const APP_VERSION='v1.2';
 const DEF_NAME='Tanda 22-nov · La Sonora Hispana';
 const DEF_SONGS=['Daniela','Fantasía Nocturna','Adonay','El Teléfono','Boquita de Caramelo','Así Empezaron Mamá y Papá','El Hijo Ausente','El Año Viejo','Tormentos','Fiesta en mi Pueblo'];
 const PEAKS_PER_S=20, DEF_DUR=12;
@@ -260,7 +260,6 @@ const keyOf=i=>norm(S.songs[i]||'');
 function metaText(r){if(!r)return['Sin audio · toca para cargar el MP3','no'];if(!r.clip)return['Audio sin recortar','no'];
   return[Math.round(r.dur)+' s desde '+fmt(r.start),'ok'];}
 function render(){
-  $('tandaName').textContent=S.name;
   const tb=$('tabs');tb.textContent='';S.lists.forEach(l=>{const b=document.createElement('button');b.className='tab';b.dataset.lid=l.id;
     b.textContent=l.name;b.setAttribute('aria-pressed',l.id===S.lid?'true':'false');tb.append(b);});
   const ad=document.createElement('button');ad.className='tab add';ad.dataset.add='1';ad.textContent='+ Nueva lista';tb.append(ad);
@@ -273,7 +272,8 @@ function render(){
     b.querySelector('.num').textContent=i+1;b.querySelector('.t').textContent=t;b.querySelector('.meta').textContent=mt;
     const a=document.createElement('button');a.className='adj';a.dataset.adj=i;a.textContent=r?'Ajustar':'Cargar';
     li.append(b,a);ol.append(li);});
-  $('count').textContent=have+' de '+S.songs.length+' con intro';
+  $('count').textContent=S.songs.length?have+' de '+S.songs.length+' con intro':'Lista vacía';
+  if(!S.songs.length){const li=document.createElement('li');li.className='hint';li.style.padding='18px 4px';li.textContent='Toca Cargar MP3 y elige los audios de esta lista. Los temas se crean con el nombre del archivo y se ordenan por su número.';ol.append(li);}
   const k=keyOf(S.cur),r=S.recs.get(k);
   $('nowTitle').textContent=S.songs.length?(S.cur+1)+'. '+S.songs[S.cur]:'—';
   $('nowMeta').textContent=r&&r.clip?Math.round(r.dur)+' s desde '+fmt(r.start):'Sin audio';
@@ -324,12 +324,23 @@ $('fileOne').onchange=async e=>{const f=e.target.files[0];if(!f||oneTarget<0)ret
   toast('Preparando '+S.songs[i]+'…',0);
   try{await importFile(f,i,false);toast('Listo: '+S.songs[i]);render();if(!$('editor').hidden)openEditor(i);}
   catch(err){toast('No pude leer '+f.name+'. Prueba con MP3 o M4A.',4000);}};
-$('fileMany').onchange=async e=>{const files=[...e.target.files];if(!files.length)return;let ok=0;const miss=[],bad=[];
-  for(let n=0;n<files.length;n++){const f=files[n];const i=matchFile(f.name);if(i<0){miss.push(f.name);continue;}
-    toast('Preparando '+(n+1)+' de '+files.length+': '+S.songs[i]+'…',0);
-    try{await importFile(f,i,false);ok++;render();}catch(err){bad.push(f.name);}}
-  let m=ok+' listos';if(miss.length)m+=' · sin tema: '+miss.join(', ');if(bad.length)m+=' · no se pudieron leer: '+bad.join(', ');
-  if(miss.length)m+='. Para esos, toca "Cargar" en el tema.';toast(m,miss.length||bad.length?7000:3000);};
+function parseName(fn){const base=fn.replace(/\.[^.]+$/,'').replace(/_/g,' ').trim();const mm=base.match(/^\s*(\d+)\s*[.\-)]*\s*/);
+  const num=mm?parseInt(mm[1],10):null;let t=mm?base.slice(mm[0].length):base;t=t.split(/\s+-\s+/)[0].trim()||base;return{num,title:t};}
+function sortList(){const L=curList();if(!L)return;const nums=L.nums||(L.nums={});const curKey=keyOf(S.cur);
+  const idx=L.songs.map((t,i)=>({t,i,n:nums[norm(t)]}));
+  idx.sort((a,b)=>{const x=a.n==null?1e9:a.n,y=b.n==null?1e9:b.n;return x-y||a.i-b.i;});
+  L.songs.splice(0,L.songs.length,...idx.map(o=>o.t));const ci=L.songs.findIndex(t=>norm(t)===curKey);S.cur=ci<0?0:ci;saveLists();}
+$('fileMany').onchange=async e=>{const files=[...e.target.files];if(!files.length)return;let ok=0,added=0;const bad=[];
+  const L=curList();L.nums=L.nums||{};
+  for(let n=0;n<files.length;n++){const f=files[n];const pn=parseName(f.name);let i=matchFile(f.name);
+    if(i<0){L.songs.push(pn.title);i=L.songs.length-1;added++;}
+    if(pn.num!=null)L.nums[norm(L.songs[i])]=pn.num;
+    toast('Preparando '+(n+1)+' de '+files.length+': '+L.songs[i]+'…',0);
+    try{await importFile(f,i,false);ok++;}catch(err){bad.push(f.name);}
+    saveLists();render();}
+  sortList();render();
+  let m=ok+' listos';if(added)m+=' · '+added+' temas nuevos';if(bad.length)m+=' · no se pudieron leer: '+bad.join(', ');
+  toast(m,bad.length?7000:3000);};
 
 /* ---------- editor ---------- */
 const E={i:-1,buf:null,start:0,dur:DEF_DUR,view:'start',testing:false,confirmDel:false};
@@ -388,16 +399,17 @@ let lsMode='edit',lsConfirm=false;
 function openLister(mode){lsMode=mode;lsConfirm=false;$('lsDel').textContent='Borrar lista';
   $('lsTitle').textContent=mode==='new'?'Nueva lista':'Editar lista';
   $('lsName').value=mode==='new'?'':S.name;$('lsText').value=mode==='new'?'':S.songs.join('\n');
-  $('lsDel').hidden=mode==='new'||S.lists.length<2;$('lister').hidden=false;}
+  $('lsDel').hidden=mode==='new'||S.lists.length<2;
+  $('lsTextWrap').hidden=mode==='new';$('lsEditHint').hidden=mode==='new';$('lsNewHint').hidden=mode!=='new';$('lister').hidden=false;}
 $('editList').onclick=()=>openLister('edit');
 $('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.add){openLister('new');return;}
   if(b.dataset.lid===S.lid)return;saveLists();stopAudio();useList(b.dataset.lid);render();window.scrollTo(0,0);});
 $('lsClose').onclick=()=>$('lister').hidden=true;
 $('lsSave').onclick=()=>{const songs=$('lsText').value.split('\n').map(s=>s.replace(/^\s*\d+\s*[.\-)]\s*/,'').trim()).filter(Boolean);
-  if(!songs.length)return toast('La lista necesita al menos un tema');const name=$('lsName').value.trim()||'Lista '+(S.lists.length+(lsMode==='new'?1:0));
+  const name=$('lsName').value.trim()||'Lista '+(S.lists.length+(lsMode==='new'?1:0));
   saveLists();
-  if(lsMode==='new'){const id='l'+Date.now().toString(36);S.lists.push({id,name,songs,cur:0});useList(id);}
+  if(lsMode==='new'){const id='l'+Date.now().toString(36);S.lists.push({id,name,songs:[],nums:{},cur:0});useList(id);}
   else{const L=curList();L.name=name;L.songs=songs;if(L.cur>=songs.length)L.cur=0;useList(L.id);}
   saveLists();$('lister').hidden=true;stopAudio();render();
   const t=$('tabs').querySelector('[aria-pressed="true"]');if(t&&t.scrollIntoView)t.scrollIntoView({inline:'nearest',block:'nearest'});};
